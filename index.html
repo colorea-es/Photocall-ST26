@@ -33,6 +33,9 @@
   .btn.secondary{background:transparent; color:var(--text); border:1px solid #444;}
   #screen-capture{background:#000;}
   #video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  .frame-overlay{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+    pointer-events:none; z-index:1; opacity:0; transition:opacity .25s; }
+  .frame-overlay.visible{ opacity:1; }
   .capture-overlay{ position:relative; z-index:2; width:100%; height:100%;
     display:flex; flex-direction:column; align-items:center; justify-content:space-between;
     padding:30px 20px; pointer-events:none; }
@@ -73,6 +76,7 @@
 
 <div id="screen-capture" class="screen">
   <video id="video" autoplay playsinline muted></video>
+  <img id="frameOverlay" class="frame-overlay" alt="">
   <div class="flash" id="flash"></div>
   <div class="capture-overlay">
     <div class="shot-progress" id="shotProgress">Foto 1 de 1</div>
@@ -115,6 +119,7 @@ const FRAME_DEFS = [
 
 let selectedFrame = null;
 let shots = [];
+const frameFullCache = {}; // id -> Promise<Image>, para no pedir el mismo marco dos veces
 let currentFacing = 'user';
 
 /* =========================================================================
@@ -149,16 +154,41 @@ async function apiGet(action, params={}){
   return parseApiResponse_(res);
 }
 
-async function apiPost(body){
-  if(!EXEC_URL || EXEC_URL.indexOf('PON_AQUI') === 0){
-    throw new Error('Falta configurar EXEC_URL en index.html con la URL de tu Apps Script.');
-  }
-  const res = await fetch(EXEC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
-    body: JSON.stringify(body)
+// Apps Script responde a las peticiones POST con una redirección interna, y
+// Safari (siguiendo el estándar HTTP) convierte ese POST en un GET al
+// seguirla, perdiendo los datos de la foto por el camino ("Acción
+// desconocida: undefined"). XMLHttpRequest no tiene ese problema aquí, así
+// que usamos eso en vez de fetch() solo para el guardado.
+function apiPost(body){
+  return new Promise((resolve, reject)=>{
+    if(!EXEC_URL || EXEC_URL.indexOf('PON_AQUI') === 0){
+      reject(new Error('Falta configurar EXEC_URL en index.html con la URL de tu Apps Script.'));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', EXEC_URL, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8'); // evita preflight CORS
+    xhr.onload = function(){
+      const text = xhr.responseText;
+      let data;
+      try{
+        data = JSON.parse(text);
+      }catch(e){
+        const preview = text.slice(0, 180).replace(/\s+/g,' ').trim();
+        reject(new Error('El servidor no devolvió datos válidos (HTTP ' + xhr.status + '). Respuesta: ' + preview));
+        return;
+      }
+      if(!data.success){
+        reject(new Error(data.error || 'Error desconocido'));
+        return;
+      }
+      resolve(data);
+    };
+    xhr.onerror = function(){
+      reject(new Error('Fallo de red al guardar la foto.'));
+    };
+    xhr.send(JSON.stringify(body));
   });
-  return parseApiResponse_(res);
 }
 
 async function init(){
@@ -221,11 +251,34 @@ async function startCamera(){
   }
 }
 
+// Pide la imagen completa de un marco (una sola vez por marco, cacheada) y
+// la deja lista en memoria. Se lanza en paralelo con la cámara para que
+// cuando termines de hacer las fotos, ya esté cargada y no haya que esperar.
+function preloadFrameFull(id){
+  if(!frameFullCache[id]){
+    frameFullCache[id] = apiGet('frame', {id}).then(r => loadImage(r.image));
+  }
+  return frameFullCache[id];
+}
+
 async function goToCapture(){
   shots = [];
   showScreen('screen-capture');
   document.getElementById('countdown').textContent='';
+
+  const frameOverlay = document.getElementById('frameOverlay');
+  frameOverlay.classList.remove('visible');
+
+  // En paralelo: arrancar la cámara Y pedir la imagen del marco a tamaño
+  // completo, para mostrarla ya superpuesta mientras se hace la foto.
+  const framePromise = preloadFrameFull(selectedFrame.id);
   await startCamera();
+
+  framePromise.then(img=>{
+    frameOverlay.src = img.src;
+    frameOverlay.classList.add('visible');
+  }).catch(()=>{ /* si falla, seguimos sin overlay; fallará más claramente al componer */ });
+
   runCaptureSequence();
 }
 
@@ -302,9 +355,9 @@ async function finishAndCompose(){
   showScreen('screen-processing');
 
   try{
-    const r = await apiGet('frame', {id: selectedFrame.id});
-    const fullSrc = r.image;
-    const frameImg = await loadImage(fullSrc);
+    // Reutiliza la imagen ya precargada durante la captura (goToCapture) —
+    // normalmente ya está lista, así que esto es instantáneo.
+    const frameImg = await preloadFrameFull(selectedFrame.id);
 
     const c = document.createElement('canvas');
     c.width = CANVAS_W; c.height = CANVAS_H;
