@@ -48,11 +48,14 @@
   .icon-btn{ width:56px; height:56px; border-radius:50%; background:rgba(0,0,0,.5);
     border:1px solid rgba(255,255,255,.3); color:#fff; font-size:22px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .back-btn{ position:absolute; top:20px; left:20px; background:var(--card);
+    border-color:#444; z-index:5; }
   #screen-processing{gap:16px;}
   #screen-processing .spinner{width:34px;height:34px;border-width:4px;}
   #screen-result img.resultImg{ max-width:min(70vw, 420px); max-height:60vh; border-radius:6px;
     box-shadow:0 10px 40px rgba(0,0,0,.5); }
   .result-row{display:flex; gap:16px; margin-top:20px;}
+  #btnNewSession{margin-top:14px;}
   #qrbox{background:#fff; padding:14px; border-radius:12px; margin-top:18px;}
   #status{color:var(--muted); font-size:14px; margin-top:14px; min-height:18px;}
   .spinner{ width:22px; height:22px; border:3px solid #333; border-top-color:var(--accent);
@@ -94,6 +97,7 @@
 </div>
 
 <div id="screen-result" class="screen">
+  <div class="icon-btn back-btn" id="btnBackToFrames">←</div>
   <img class="resultImg" id="resultImg" alt="Foto">
   <div id="status"></div>
   <div id="qrbox" style="display:none;"></div>
@@ -101,6 +105,7 @@
     <button class="btn secondary" id="btnRetry">Repetir</button>
     <button class="btn" id="btnSave">Guardar y generar QR</button>
   </div>
+  <button class="btn secondary" id="btnNewSession">Elegir otro marco</button>
 </div>
 
 <script>
@@ -386,6 +391,22 @@ async function finishAndCompose(){
 }
 
 document.getElementById('btnRetry').onclick = ()=> goToCapture();
+
+// Vuelve a la pantalla de elegir marco (para el siguiente invitado).
+function backToFrameSelection(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  selectedFrame = null;
+  shots = [];
+  finalDataURL = null;
+  document.querySelectorAll('.frame-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('btnContinue').disabled = true;
+  document.getElementById('status').textContent = '';
+  document.getElementById('qrbox').style.display = 'none';
+  document.getElementById('qrbox').innerHTML = '';
+  showScreen('screen-select');
+}
+document.getElementById('btnBackToFrames').onclick = backToFrameSelection;
+document.getElementById('btnNewSession').onclick = backToFrameSelection;
 
 document.getElementById('btnSave').onclick = ()=>{
   const statusEl = document.getElementById('status');
