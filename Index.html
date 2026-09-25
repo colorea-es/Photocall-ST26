@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Fotomatón de la boda</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{ --bg:#111; --card:#1b1b1b; --accent:#7c8347; --text:#f4f1ea; --muted:#9a9a94; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; margin:0; overflow:hidden;}
+  body{ background:#0d0d0d; color:var(--text); font-family:'Jost', sans-serif;
+    display:flex; align-items:center; justify-content:center; }
+  .screen{ width:100vw; height:100vh; display:none; flex-direction:column;
+    align-items:center; justify-content:center; padding:24px; position:relative; }
+  .screen.active{display:flex;}
+  #screen-select .logo{ max-width:280px; width:70vw; height:auto; margin-bottom:6px; }
+  #screen-select p.sub{color:var(--muted); margin:0 0 22px; font-size:15px; letter-spacing:.5px;}
+  .frame-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;
+    max-width:920px; width:100%; overflow-y:auto; padding:4px; }
+  .frame-card{ background:var(--card); border-radius:14px; padding:10px; cursor:pointer;
+    border:2px solid transparent; transition:.15s; text-align:center; }
+  .frame-card:active{transform:scale(.96);}
+  .frame-card.selected{border-color:var(--accent);}
+  .frame-card img{width:100%; height:auto; border-radius:8px; display:block; background:#fff;}
+  .frame-card .lbl{font-size:12px; color:var(--muted); margin-top:6px;}
+  .btn{ margin-top:26px; background:var(--accent); color:#fff; border:none;
+    padding:16px 44px; border-radius:30px; font-size:17px; font-weight:600;
+    letter-spacing:.5px; cursor:pointer; font-family:'Jost',sans-serif; }
+  .btn:disabled{opacity:.35;}
+  .btn.secondary{background:transparent; color:var(--text); border:1px solid #444;}
+  #screen-capture{background:#000;}
+  #video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  .capture-overlay{ position:relative; z-index:2; width:100%; height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:30px 20px; pointer-events:none; }
+  .shot-progress{ background:rgba(0,0,0,.5); padding:8px 20px; border-radius:20px; font-size:14px; letter-spacing:1px; }
+  .countdown{ font-size:140px; font-weight:700; text-shadow:0 4px 24px rgba(0,0,0,.6); font-family:'Jost',sans-serif; }
+  .flash{ position:absolute; inset:0; background:#fff; opacity:0; z-index:3; pointer-events:none; }
+  .flash.on{opacity:1; transition:opacity .05s;}
+  .flash.off{opacity:0; transition:opacity .4s;}
+  .cam-controls{ display:flex; gap:40px; pointer-events:all; z-index:4; }
+  .icon-btn{ width:56px; height:56px; border-radius:50%; background:rgba(0,0,0,.5);
+    border:1px solid rgba(255,255,255,.3); color:#fff; font-size:22px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #screen-processing{gap:16px;}
+  #screen-processing .spinner{width:34px;height:34px;border-width:4px;}
+  #screen-result img.resultImg{ max-width:min(70vw, 420px); max-height:60vh; border-radius:6px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .result-row{display:flex; gap:16px; margin-top:20px;}
+  #qrbox{background:#fff; padding:14px; border-radius:12px; margin-top:18px;}
+  #status{color:var(--muted); font-size:14px; margin-top:14px; min-height:18px;}
+  .spinner{ width:22px; height:22px; border:3px solid #333; border-top-color:var(--accent);
+    border-radius:50%; animation:spin 0.8s linear infinite; display:inline-block;
+    vertical-align:middle; margin-right:8px; }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #loading{position:fixed; inset:0; background:#0d0d0d; display:flex; align-items:center;
+    justify-content:center; z-index:99; color:var(--muted); font-size:14px; text-align:center; padding:20px;}
+</style>
+</head>
+<body>
+
+<div id="loading"><span class="spinner"></span>&nbsp;Cargando marcos…</div>
+
+<div id="screen-select" class="screen">
+  <img class="logo" src="" id="logoImg" alt="Teba & Teresa">
+  <p class="sub">Elige tu marco antes de la foto</p>
+  <div class="frame-grid" id="frameGrid"></div>
+  <button class="btn" id="btnContinue" disabled>Continuar</button>
+</div>
+
+<div id="screen-capture" class="screen">
+  <video id="video" autoplay playsinline muted></video>
+  <div class="flash" id="flash"></div>
+  <div class="capture-overlay">
+    <div class="shot-progress" id="shotProgress">Foto 1 de 1</div>
+    <div class="countdown" id="countdown"></div>
+    <div class="cam-controls">
+      <div class="icon-btn" id="btnCancel">✕</div>
+      <div class="icon-btn" id="btnFlip">⟲</div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-processing" class="screen">
+  <span class="spinner"></span>
+  <div>Componiendo tu foto…</div>
+</div>
+
+<div id="screen-result" class="screen">
+  <img class="resultImg" id="resultImg" alt="Foto">
+  <div id="status"></div>
+  <div id="qrbox" style="display:none;"></div>
+  <div class="result-row">
+    <button class="btn secondary" id="btnRetry">Repetir</button>
+    <button class="btn" id="btnSave">Guardar y generar QR</button>
+  </div>
+</div>
+
+<script>
+const CANVAS_W = 1080, CANVAS_H = 1920;
+
+// Coordenadas del hueco de foto dentro de cada plantilla (1080x1920).
+// El "id" tiene que coincidir con el nombre del archivo subido a Drive (sin .png)
+const FRAME_DEFS = [
+  { id:"olive-1", label:"1 foto",  windows:[{x:265,y:483,w:550,h:867}] },
+  { id:"olive-2", label:"2 fotos", windows:[{x:287,y:513,w:506,h:392},{x:287,y:940,w:506,h:392}] },
+  { id:"olive-3", label:"3 fotos", windows:[{x:327,y:408,w:427,h:330},{x:327,y:777,w:427,h:329},{x:327,y:1145,w:427,h:330}] },
+  { id:"wine-1",  label:"1 foto",  windows:[{x:265,y:483,w:550,h:867}] },
+  { id:"wine-2",  label:"2 fotos", windows:[{x:287,y:513,w:506,h:392},{x:287,y:940,w:506,h:392}] },
+  { id:"wine-3",  label:"3 fotos", windows:[{x:327,y:408,w:427,h:330},{x:327,y:777,w:427,h:329},{x:327,y:1145,w:427,h:330}] },
+];
+
+let selectedFrame = null;
+let shots = [];
+let currentFacing = 'user';
+
+/* =========================================================================
+   1) SELECCIÓN — solo miniaturas ligeras, nada a tamaño completo todavía
+   ========================================================================= */
+// PEGA AQUÍ la URL de tu Apps Script (termina en /exec)
+const EXEC_URL = "https://script.google.com/macros/s/AKfycbx_QvjHQVwJPQnM7UdSMC_BCZb9SGlQy3hp7hPi00fVvE2hha9Yah1-L-uBZpbwRq-f/exec";
+
+async function apiGet(action, params={}){
+  const qs = new URLSearchParams({action, ...params}).toString();
+  const res = await fetch(EXEC_URL + '?' + qs);
+  const data = await res.json();
+  if(!data.success) throw new Error(data.error || 'Error desconocido');
+  return data;
+}
+
+async function apiPost(body){
+  const res = await fetch(EXEC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if(!data.success) throw new Error(data.error || 'Error desconocido');
+  return data;
+}
+
+async function init(){
+  let thumbs;
+  try{
+    const r = await apiGet('thumbnails');
+    thumbs = r.thumbnails;
+  }catch(e){
+    document.getElementById('loading').innerHTML = 'No se pudieron cargar los marcos.<br>' + e.message;
+    return;
+  }
+
+  document.getElementById('logoImg').src = thumbs['logo'] || '';
+
+  const frameGrid = document.getElementById('frameGrid');
+  FRAME_DEFS.forEach(def=>{
+    if(!thumbs[def.id]) return;
+    const card = document.createElement('div');
+    card.className = 'frame-card';
+    const img = document.createElement('img');
+    img.src = thumbs[def.id];
+    img.loading = 'lazy';
+    const lbl = document.createElement('div');
+    lbl.className='lbl';
+    lbl.textContent = def.label;
+    card.appendChild(img); card.appendChild(lbl);
+    card.onclick = ()=>{
+      document.querySelectorAll('.frame-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedFrame = def;
+      document.getElementById('btnContinue').disabled = false;
+    };
+    frameGrid.appendChild(card);
+  });
+
+  document.getElementById('loading').style.display = 'none';
+  showScreen('screen-select');
+}
+
+document.getElementById('btnContinue').onclick = ()=> goToCapture();
+
+/* =========================================================================
+   2) CÁMARA
+   ========================================================================= */
+const video = document.getElementById('video');
+const flashEl = document.getElementById('flash');
+let stream = null;
+
+async function startCamera(){
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode: currentFacing, width:{ideal:720}, height:{ideal:1280} },
+      audio:false
+    });
+    video.srcObject = stream;
+    video.style.transform = currentFacing==='user' ? 'scaleX(-1)' : 'none';
+  }catch(e){
+    showFatalError('No se pudo abrir la cámara: ' + e.message);
+  }
+}
+
+async function goToCapture(){
+  shots = [];
+  showScreen('screen-capture');
+  document.getElementById('countdown').textContent='';
+  await startCamera();
+  runCaptureSequence();
+}
+
+async function runCaptureSequence(){
+  const total = selectedFrame.windows.length;
+  for(let i=0;i<total;i++){
+    document.getElementById('shotProgress').textContent = `Foto ${i+1} de ${total}`;
+    await countdown(3);
+    const shot = grabFrame();
+    shots.push(shot);
+    flashEl.className='flash on';
+    setTimeout(()=> flashEl.className='flash off', 60);
+    await sleep(500);
+  }
+  finishAndCompose();
+}
+
+function countdown(n){
+  return new Promise(resolve=>{
+    const el = document.getElementById('countdown');
+    let c = n;
+    el.textContent = c;
+    const t = setInterval(()=>{
+      c--;
+      if(c<=0){ clearInterval(t); el.textContent=''; resolve(); }
+      else el.textContent = c;
+    },1000);
+  });
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function grabFrame(){
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth; c.height = video.videoHeight;
+  const cx = c.getContext('2d');
+  cx.drawImage(video,0,0,c.width,c.height);
+  return c;
+}
+
+document.getElementById('btnFlip').onclick = ()=>{
+  currentFacing = currentFacing==='user' ? 'environment' : 'user';
+  startCamera();
+};
+document.getElementById('btnCancel').onclick = ()=>{
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  showScreen('screen-select');
+};
+
+/* =========================================================================
+   3) COMPOSICIÓN — la cámara ya está apagada aquí; ahora sí pedimos
+      la imagen del marco a tamaño completo, una sola vez.
+   ========================================================================= */
+let finalDataURL = null;
+
+function loadImage(src){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function drawCover(ctx, img, x, y, w, h){
+  const iw = img.width, ih = img.height;
+  const scale = Math.max(w/iw, h/ih);
+  const dw = iw*scale, dh = ih*scale;
+  const dx = x + (w-dw)/2, dy = y + (h-dh)/2;
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+async function finishAndCompose(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  showScreen('screen-processing');
+
+  try{
+    const r = await apiGet('frame', {id: selectedFrame.id});
+    const fullSrc = r.image;
+    const frameImg = await loadImage(fullSrc);
+
+    const c = document.createElement('canvas');
+    c.width = CANVAS_W; c.height = CANVAS_H;
+    const ctx = c.getContext('2d');
+
+    selectedFrame.windows.forEach((win,i)=>{
+      ctx.save();
+      ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();
+      drawCover(ctx, shots[i], win.x, win.y, win.w, win.h);
+      ctx.restore();
+    });
+    ctx.drawImage(frameImg, 0, 0, CANVAS_W, CANVAS_H);
+
+    finalDataURL = c.toDataURL('image/png');
+    document.getElementById('resultImg').src = finalDataURL;
+    document.getElementById('status').textContent = '';
+    document.getElementById('qrbox').style.display = 'none';
+    document.getElementById('qrbox').innerHTML = '';
+    document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnSave').textContent = 'Guardar y generar QR';
+    showScreen('screen-result');
+  }catch(e){
+    showFatalError('Error al componer la foto: ' + e.message);
+    showScreen('screen-select');
+  }
+}
+
+document.getElementById('btnRetry').onclick = ()=> goToCapture();
+
+document.getElementById('btnSave').onclick = ()=>{
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  statusEl.innerHTML = '<span class="spinner"></span>Guardando en Drive…';
+
+  const filename = 'teba_y_teresa_' + Date.now() + '.png';
+
+  apiPost({ base64Data: finalDataURL, filename }).then(res=>{
+    statusEl.textContent = '¡Guardada! Escanea para descargar:';
+    const box = document.getElementById('qrbox');
+    box.style.display='inline-block';
+    new QRCode(box, { text: res.downloadUrl, width:180, height:180 });
+    btn.textContent = 'Guardada ✓';
+  }).catch(err=>{
+    statusEl.textContent = 'Error al guardar: ' + err.message;
+    btn.disabled = false;
+  });
+};
+
+/* =========================================================================
+   utilidades
+   ========================================================================= */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showFatalError(msg){
+  let el = document.getElementById('fatalError');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'fatalError';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b91c1c;color:#fff;'
+      + 'font-size:13px;padding:12px 16px;z-index:999;text-align:center;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+}
+
+window.addEventListener('error', e=> showFatalError('Error: ' + e.message));
+window.addEventListener('unhandledrejection', e=> showFatalError('Error: ' + (e.reason && e.reason.message || e.reason)));
+
+init();
+</script>
+</body>
+</html>
