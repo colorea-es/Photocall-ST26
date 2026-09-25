@@ -123,23 +123,42 @@ let currentFacing = 'user';
 // PEGA AQUÍ la URL de tu Apps Script (termina en /exec)
 const EXEC_URL = "https://script.google.com/macros/s/AKfycbx_QvjHQVwJPQnM7UdSMC_BCZb9SGlQy3hp7hPi00fVvE2hha9Yah1-L-uBZpbwRq-f/exec";
 
-async function apiGet(action, params={}){
-  const qs = new URLSearchParams({action, ...params}).toString();
-  const res = await fetch(EXEC_URL + '?' + qs);
-  const data = await res.json();
+// Interpreta la respuesta como texto primero, y solo luego como JSON.
+// Si el servidor devuelve algo que no es JSON (p.ej. una página de error
+// de Google), esto lo detecta y muestra el texto real en vez de un error
+// críptico de "JSON inválido".
+async function parseApiResponse_(res){
+  const text = await res.text();
+  let data;
+  try{
+    data = JSON.parse(text);
+  }catch(e){
+    const preview = text.slice(0, 180).replace(/\s+/g,' ').trim();
+    throw new Error('El servidor no devolvió datos válidos (HTTP ' + res.status + '). Respuesta: ' + preview);
+  }
   if(!data.success) throw new Error(data.error || 'Error desconocido');
   return data;
 }
 
+async function apiGet(action, params={}){
+  if(!EXEC_URL || EXEC_URL.indexOf('PON_AQUI') === 0){
+    throw new Error('Falta configurar EXEC_URL en index.html con la URL de tu Apps Script.');
+  }
+  const qs = new URLSearchParams({action, ...params}).toString();
+  const res = await fetch(EXEC_URL + '?' + qs);
+  return parseApiResponse_(res);
+}
+
 async function apiPost(body){
+  if(!EXEC_URL || EXEC_URL.indexOf('PON_AQUI') === 0){
+    throw new Error('Falta configurar EXEC_URL en index.html con la URL de tu Apps Script.');
+  }
   const res = await fetch(EXEC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS
     body: JSON.stringify(body)
   });
-  const data = await res.json();
-  if(!data.success) throw new Error(data.error || 'Error desconocido');
-  return data;
+  return parseApiResponse_(res);
 }
 
 async function init(){
