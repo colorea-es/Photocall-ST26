@@ -3,31 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <title>Fotomatón de la boda</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{ --bg:#111; --card:#1b1b1b; --accent:#7c8347; --text:#f4f1ea; --muted:#9a9a94; }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%; margin:0; overflow:hidden;}
   body{ background:#0d0d0d; color:var(--text); font-family:'Jost', sans-serif;
-    display:flex; align-items:center; justify-content:center; }
-  .screen{ width:100vw; height:100vh; display:none; flex-direction:column;
-    align-items:center; justify-content:center; padding:24px; position:relative; }
+    display:flex; align-items:center; justify-content:center;
+    height:100vh; height:100dvh; }
+  .screen{ width:100vw; height:100vh; height:100dvh; display:none; flex-direction:column;
+    align-items:center; justify-content:center; padding:20px; position:relative; }
   .screen.active{display:flex;}
-  #screen-select .logo{ max-width:280px; width:70vw; height:auto; margin-bottom:6px; }
-  #screen-select p.sub{color:var(--muted); margin:0 0 22px; font-size:15px; letter-spacing:.5px;}
-  .frame-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;
-    max-width:920px; width:100%; overflow-y:auto; padding:4px; }
-  .frame-card{ background:var(--card); border-radius:14px; padding:10px; cursor:pointer;
+  #screen-select .logo{ max-width:240px; width:60vw; height:auto; margin-bottom:6px; }
+  #screen-select p.sub{color:var(--muted); margin:0 0 18px; font-size:14px; letter-spacing:.5px; text-align:center;}
+  .frame-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;
+    max-width:920px; width:100%; overflow-y:auto; padding:4px; -webkit-overflow-scrolling:touch; }
+  .frame-card{ background:var(--card); border-radius:14px; padding:8px; cursor:pointer;
     border:2px solid transparent; transition:.15s; text-align:center; }
   .frame-card:active{transform:scale(.96);}
   .frame-card.selected{border-color:var(--accent);}
   .frame-card img{width:100%; height:auto; border-radius:8px; display:block; background:#fff;}
-  .frame-card .lbl{font-size:12px; color:var(--muted); margin-top:6px;}
-  .btn{ margin-top:26px; background:var(--accent); color:#fff; border:none;
-    padding:16px 44px; border-radius:30px; font-size:17px; font-weight:600;
+  .frame-card .lbl{font-size:11px; color:var(--muted); margin-top:5px;}
+  .btn{ margin-top:22px; background:var(--accent); color:#fff; border:none;
+    padding:15px 40px; border-radius:30px; font-size:16px; font-weight:600;
     letter-spacing:.5px; cursor:pointer; font-family:'Jost',sans-serif; }
   .btn:disabled{opacity:.35;}
   .btn.secondary{background:transparent; color:var(--text); border:1px solid #444;}
@@ -38,32 +38,35 @@
   .frame-overlay.visible{ opacity:1; }
   .capture-overlay{ position:relative; z-index:2; width:100%; height:100%;
     display:flex; flex-direction:column; align-items:center; justify-content:space-between;
-    padding:30px 20px; pointer-events:none; }
-  .shot-progress{ background:rgba(0,0,0,.5); padding:8px 20px; border-radius:20px; font-size:14px; letter-spacing:1px; }
-  .countdown{ font-size:140px; font-weight:700; text-shadow:0 4px 24px rgba(0,0,0,.6); font-family:'Jost',sans-serif; }
+    padding:max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+    pointer-events:none; }
+  .shot-progress{ background:rgba(0,0,0,.5); padding:7px 18px; border-radius:20px; font-size:13px; letter-spacing:1px; }
+  .countdown{ font-size:min(140px, 30vw); font-weight:700; text-shadow:0 4px 24px rgba(0,0,0,.6); font-family:'Jost',sans-serif; }
   .flash{ position:absolute; inset:0; background:#fff; opacity:0; z-index:3; pointer-events:none; }
   .flash.on{opacity:1; transition:opacity .05s;}
   .flash.off{opacity:0; transition:opacity .4s;}
-  .cam-controls{ display:flex; gap:40px; pointer-events:all; z-index:4; }
-  .icon-btn{ width:56px; height:56px; border-radius:50%; background:rgba(0,0,0,.5);
+  .cam-controls{ display:flex; gap:36px; pointer-events:all; z-index:4; }
+  .icon-btn{ width:54px; height:54px; border-radius:50%; background:rgba(0,0,0,.5);
     border:1px solid rgba(255,255,255,.3); color:#fff; font-size:22px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .back-btn{ position:absolute; top:20px; left:20px; background:var(--card);
-    border-color:#444; z-index:5; }
+  .back-btn{ position:absolute; top:max(16px, env(safe-area-inset-top)); left:16px;
+    background:var(--card); border-color:#444; z-index:5; }
   #screen-processing{gap:16px;}
   #screen-processing .spinner{width:34px;height:34px;border-width:4px;}
-  #screen-result img.resultImg{ max-width:min(70vw, 420px); max-height:60vh; border-radius:6px;
+  #screen-result img.resultImg{ max-width:min(80vw, 380px); max-height:52vh; border-radius:6px;
     box-shadow:0 10px 40px rgba(0,0,0,.5); }
-  .result-row{display:flex; gap:16px; margin-top:20px;}
-  #btnNewSession{margin-top:14px;}
-  #qrbox{background:#fff; padding:14px; border-radius:12px; margin-top:18px;}
-  #status{color:var(--muted); font-size:14px; margin-top:14px; min-height:18px;}
+  .result-row{display:flex; gap:14px; margin-top:18px; flex-wrap:wrap; justify-content:center;}
+  #btnNewSession{margin-top:12px;}
+  #status{color:var(--muted); font-size:13px; margin-top:12px; min-height:18px; text-align:center; padding:0 10px;}
   .spinner{ width:22px; height:22px; border:3px solid #333; border-top-color:var(--accent);
     border-radius:50%; animation:spin 0.8s linear infinite; display:inline-block;
     vertical-align:middle; margin-right:8px; }
   @keyframes spin{to{transform:rotate(360deg);}}
   #loading{position:fixed; inset:0; background:#0d0d0d; display:flex; align-items:center;
     justify-content:center; z-index:99; color:var(--muted); font-size:14px; text-align:center; padding:20px;}
+  @media (min-width:600px){
+    .frame-grid{ grid-template-columns:repeat(3, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -71,7 +74,7 @@
 <div id="loading"><span class="spinner"></span>&nbsp;Cargando marcos…</div>
 
 <div id="screen-select" class="screen">
-  <img class="logo" src="" id="logoImg" alt="Teba & Teresa">
+  <img class="logo" src="" id="logoImg" alt="Seba & Teresa">
   <p class="sub">Elige tu marco antes de la foto</p>
   <div class="frame-grid" id="frameGrid"></div>
   <button class="btn" id="btnContinue" disabled>Continuar</button>
@@ -100,10 +103,9 @@
   <div class="icon-btn back-btn" id="btnBackToFrames">←</div>
   <img class="resultImg" id="resultImg" alt="Foto">
   <div id="status"></div>
-  <div id="qrbox" style="display:none;"></div>
   <div class="result-row">
     <button class="btn secondary" id="btnRetry">Repetir</button>
-    <button class="btn" id="btnSave">Guardar y generar QR</button>
+    <button class="btn" id="btnSave">Guardar foto</button>
   </div>
   <button class="btn secondary" id="btnNewSession">Elegir otro marco</button>
 </div>
@@ -114,12 +116,12 @@ const CANVAS_W = 1080, CANVAS_H = 1920;
 // Coordenadas del hueco de foto dentro de cada plantilla (1080x1920).
 // El "id" tiene que coincidir con el nombre del archivo subido a Drive (sin .png)
 const FRAME_DEFS = [
-  { id:"olive-1", label:"1 foto",  windows:[{x:265,y:483,w:550,h:867}] },
-  { id:"olive-2", label:"2 fotos", windows:[{x:287,y:513,w:506,h:392},{x:287,y:940,w:506,h:392}] },
-  { id:"olive-3", label:"3 fotos", windows:[{x:327,y:408,w:427,h:330},{x:327,y:777,w:427,h:329},{x:327,y:1145,w:427,h:330}] },
-  { id:"wine-1",  label:"1 foto",  windows:[{x:265,y:483,w:550,h:867}] },
-  { id:"wine-2",  label:"2 fotos", windows:[{x:287,y:513,w:506,h:392},{x:287,y:940,w:506,h:392}] },
-  { id:"wine-3",  label:"3 fotos", windows:[{x:327,y:408,w:427,h:330},{x:327,y:777,w:427,h:329},{x:327,y:1145,w:427,h:330}] },
+  { id:"marco1", label:"1 foto",  windows:[{x:0,  y:0,  w:1080, h:1920}] },
+  { id:"marco2", label:"1 foto",  windows:[{x:0,  y:0,  w:1080, h:1920}] },
+  { id:"marco3", label:"2 fotos", windows:[{x:108,y:108,w:860, h:572},{x:112,y:710,w:860, h:572}] },
+  { id:"marco4", label:"3 fotos", windows:[{x:332,y:186,w:440, h:357},{x:332,y:566,w:440, h:357},{x:332,y:947,w:440, h:357}] },
+  { id:"marco5", label:"1 foto",  windows:[{x:214,y:369,w:652, h:1054}] },
+  { id:"marco6", label:"1 foto",  windows:[{x:115,y:253,w:850, h:1179}] },
 ];
 
 let selectedFrame = null;
@@ -379,10 +381,8 @@ async function finishAndCompose(){
     finalDataURL = c.toDataURL('image/png');
     document.getElementById('resultImg').src = finalDataURL;
     document.getElementById('status').textContent = '';
-    document.getElementById('qrbox').style.display = 'none';
-    document.getElementById('qrbox').innerHTML = '';
     document.getElementById('btnSave').disabled = false;
-    document.getElementById('btnSave').textContent = 'Guardar y generar QR';
+    document.getElementById('btnSave').textContent = 'Guardar foto';
     showScreen('screen-result');
   }catch(e){
     showFatalError('Error al componer la foto: ' + e.message);
@@ -401,30 +401,55 @@ function backToFrameSelection(){
   document.querySelectorAll('.frame-card').forEach(c=>c.classList.remove('selected'));
   document.getElementById('btnContinue').disabled = true;
   document.getElementById('status').textContent = '';
-  document.getElementById('qrbox').style.display = 'none';
-  document.getElementById('qrbox').innerHTML = '';
   showScreen('screen-select');
 }
 document.getElementById('btnBackToFrames').onclick = backToFrameSelection;
 document.getElementById('btnNewSession').onclick = backToFrameSelection;
 
-document.getElementById('btnSave').onclick = ()=>{
+// Guarda la foto en el propio móvil del invitado (vía el share sheet nativo,
+// que en iPhone ofrece "Guardar en Fotos"; si el navegador no soporta
+// compartir archivos, se descarga directamente) y, en paralelo, sube una
+// copia a la carpeta de Drive para que los novios tengan acceso a todas las
+// fotos. Ambos pasos son independientes: si falla la subida a Drive, el
+// invitado ya tiene su foto igualmente.
+document.getElementById('btnSave').onclick = async ()=>{
   const statusEl = document.getElementById('status');
   const btn = document.getElementById('btnSave');
   btn.disabled = true;
-  statusEl.innerHTML = '<span class="spinner"></span>Guardando en Drive…';
+  statusEl.innerHTML = '<span class="spinner"></span>Guardando…';
 
   const filename = 'teba_y_teresa_' + Date.now() + '.png';
 
-  apiPost({ base64Data: finalDataURL, filename }).then(res=>{
-    statusEl.textContent = '¡Guardada! Escanea para descargar:';
-    const box = document.getElementById('qrbox');
-    box.style.display='inline-block';
-    new QRCode(box, { text: res.downloadUrl, width:180, height:180 });
+  function downloadFallback(){
+    const a = document.createElement('a');
+    a.href = finalDataURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  try{
+    const blob = await (await fetch(finalDataURL)).blob();
+    const file = new File([blob], filename, {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Foto del fotomatón'});
+    }else{
+      downloadFallback();
+    }
+  }catch(e){
+    // Si el invitado cierra el panel de compartir (AbortError), no es un error real.
+    if(e.name !== 'AbortError') downloadFallback();
+  }
+
+  statusEl.textContent = 'Guardando una copia para los novios…';
+  apiPost({ base64Data: finalDataURL, filename }).then(()=>{
+    statusEl.textContent = '¡Listo! Foto guardada ✓';
     btn.textContent = 'Guardada ✓';
   }).catch(err=>{
-    statusEl.textContent = 'Error al guardar: ' + err.message;
+    statusEl.textContent = 'Tu foto ya está guardada en el móvil. (No se pudo subir la copia a Drive: ' + err.message + ')';
     btn.disabled = false;
+    btn.textContent = 'Reintentar copia a Drive';
   });
 };
 
