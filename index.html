@@ -74,7 +74,7 @@
 <div id="loading"><span class="spinner"></span>&nbsp;Cargando marcos…</div>
 
 <div id="screen-select" class="screen">
-  <img class="logo" src="" id="logoImg" alt="Seba & Teresa">
+  <img class="logo" src="" id="logoImg" alt="Teba & Teresa">
   <p class="sub">Elige tu marco antes de la foto</p>
   <div class="frame-grid" id="frameGrid"></div>
   <button class="btn" id="btnContinue" disabled>Continuar</button>
@@ -82,7 +82,6 @@
 
 <div id="screen-capture" class="screen">
   <video id="video" autoplay playsinline muted></video>
-  <img id="frameOverlay" class="frame-overlay" alt="">
   <div class="flash" id="flash"></div>
   <div class="capture-overlay">
     <div class="shot-progress" id="shotProgress">Foto 1 de 1</div>
@@ -273,18 +272,10 @@ async function goToCapture(){
   showScreen('screen-capture');
   document.getElementById('countdown').textContent='';
 
-  const frameOverlay = document.getElementById('frameOverlay');
-  frameOverlay.classList.remove('visible');
-
-  // En paralelo: arrancar la cámara Y pedir la imagen del marco a tamaño
-  // completo, para mostrarla ya superpuesta mientras se hace la foto.
-  const framePromise = preloadFrameFull(selectedFrame.id);
+  // El marco NO se muestra durante la captura. Se descarga en segundo plano
+  // mientras arranca la cámara, para que la composición final sea instantánea.
+  preloadFrameFull(selectedFrame.id).catch(()=>{ /* si falla, se verá el error al componer */ });
   await startCamera();
-
-  framePromise.then(img=>{
-    frameOverlay.src = img.src;
-    frameOverlay.classList.add('visible');
-  }).catch(()=>{ /* si falla, seguimos sin overlay; fallará más claramente al componer */ });
 
   runCaptureSequence();
 }
