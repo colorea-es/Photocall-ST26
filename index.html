@@ -190,6 +190,8 @@ function apiPost(body){
       }
       resolve(data);
     };
+    xhr.timeout = 90000; // si tarda más de 90 s, avisar en vez de quedarse colgado
+    xhr.ontimeout = function(){ reject(new Error('Tiempo de espera agotado al subir la foto.')); };
     xhr.onerror = function(){
       reject(new Error('Fallo de red al guardar la foto.'));
     };
@@ -369,7 +371,7 @@ async function finishAndCompose(){
     });
     ctx.drawImage(frameImg, 0, 0, CANVAS_W, CANVAS_H);
 
-    finalDataURL = c.toDataURL('image/png');
+    finalDataURL = c.toDataURL('image/jpeg', 0.92); // JPEG: ~10x más ligero que PNG, sube rápido con datos móviles
     document.getElementById('resultImg').src = finalDataURL;
     document.getElementById('status').textContent = '';
     document.getElementById('btnSave').disabled = false;
@@ -409,7 +411,7 @@ document.getElementById('btnSave').onclick = async ()=>{
   btn.disabled = true;
   statusEl.innerHTML = '<span class="spinner"></span>Guardando…';
 
-  const filename = 'teba_y_teresa_' + Date.now() + '.png';
+  const filename = 'teba_y_teresa_' + Date.now() + '.jpg';
 
   function downloadFallback(){
     const a = document.createElement('a');
@@ -422,7 +424,7 @@ document.getElementById('btnSave').onclick = async ()=>{
 
   try{
     const blob = await (await fetch(finalDataURL)).blob();
-    const file = new File([blob], filename, {type:'image/png'});
+    const file = new File([blob], filename, {type:'image/jpeg'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title:'Foto del fotomatón'});
     }else{
